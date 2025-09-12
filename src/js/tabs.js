@@ -28,6 +28,9 @@ export function addEventListener(callback) {
 }
 
 export function openFile(path) {
+  // Update the active tab state first to provide immediate visual feedback
+  updateActiveTab(path);
+  
   // Try to find the file in the current DOM first
   const fileElement = fileLibrary.querySelector(
     `[data-path=\"${path.replace(/\\/gm, "\\\\")}\"] > div.file-node-content`
@@ -46,9 +49,6 @@ export function openFile(path) {
       File.editor.tryOpenUrl(path);
     }
   }
-  
-  // Update the active tab state directly since DOM manipulation might not work
-  updateActiveTab(path);
 }
 
 function updateActiveTab(path) {
