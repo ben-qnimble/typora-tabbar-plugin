@@ -20,16 +20,54 @@ let onTabChanged = () => {};
 
 attachListenerToFileNode(fileLibrary, "[data-path][data-is-directory=false]");
 
+// Store reference to original tryOpenUrl before it's overridden
+let originalTryOpenUrl = null;
+
 export function addEventListener(callback) {
   onTabChanged = callback;
 }
 
 export function openFile(path) {
-  fileLibrary
-    .querySelector(
-      `[data-path=\"${path.replace(/\\/gm, "\\\\")}\"] > div.file-node-content`
-    )
-    ?.click();
+  // Try to find the file in the current DOM first
+  const fileElement = fileLibrary.querySelector(
+    `[data-path=\"${path.replace(/\\/gm, "\\\\")}\"] > div.file-node-content`
+  );
+  
+  if (fileElement) {
+    // File is in current view, click it
+    fileElement.click();
+  } else {
+    // File not in current view, try alternative methods
+    
+    // Method 1: Try to use Typora's native file opening method
+    if (originalTryOpenUrl) {
+      originalTryOpenUrl.call(File.editor, path);
+    } else if (typeof File !== 'undefined' && File.editor && File.editor.tryOpenUrl) {
+      File.editor.tryOpenUrl(path);
+    }
+  }
+  
+  // Update the active tab state directly since DOM manipulation might not work
+  updateActiveTab(path);
+}
+
+function updateActiveTab(path) {
+  // Update our internal tab tracking
+  tabs = tabs.map((tab) => {
+    if (tab.path === path) {
+      tab.active = true;
+      return tab;
+    } else {
+      tab.active = false;
+      return tab;
+    }
+  });
+  
+  // Update the activeFile variable
+  activeFile = path;
+  
+  // Notify the UI
+  onTabChanged(tabs);
 }
 export function closeFile(path) {
   const pathIndex = tabs.findIndex((tab) => tab.path === path);
@@ -177,6 +215,9 @@ function handleUrls() {
     /^https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&\/=]*)$/;
 
   const tryOpenUrlCopy = File.editor.tryOpenUrl;
+  // Store the original for use in openFile function
+  originalTryOpenUrl = tryOpenUrlCopy;
+  
   File.editor.tryOpenUrl = (e, t) => {
     if (e.match(urlPattern)) {
       tryOpenUrlCopy.apply(this, [e, t]);
